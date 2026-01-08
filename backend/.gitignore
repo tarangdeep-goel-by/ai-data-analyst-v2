@@ -1,0 +1,85 @@
+# User Data - DO NOT COMMIT
+data/
+demo_data/
+*.csv
+*.xlsx
+*.xls
+
+# Environment Variables and API Keys
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# Logs
+*.log
+logs/
+/tmp/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Plots (generated at runtime)
+plots/
+*.png
+*.jpg
+*.jpeg
+!screenshots/*.png
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Project specific
+temp_modifications/
+*.pkl
+*.pickle
