@@ -30,11 +30,32 @@ ai-data-analyst-app/
 
 ## Quick Start
 
-### Prerequisites
+### 🐳 Option 1: Docker (Recommended - Works on Any Device)
 
-- Python 3.9+
-- Node.js 18+
-- npm or yarn
+**Prerequisites:** Docker Desktop installed
+
+```bash
+# 1. Set your Gemini API key
+cd backend
+echo "GEMINI_API_KEY=your_api_key_here" > .env
+cd ..
+
+# 2. Start everything with one command
+docker-compose up --build
+
+# 3. Access the application
+# Frontend: http://localhost
+# Backend: http://localhost:8000
+# API Docs: http://localhost:8000/api/docs
+```
+
+**See [DOCKER_GUIDE.md](DOCKER_GUIDE.md) for complete Docker instructions**
+
+---
+
+### 💻 Option 2: Local Development
+
+**Prerequisites:** Python 3.9+, Node.js 18+, npm
 
 ### 1. Start the Backend
 
