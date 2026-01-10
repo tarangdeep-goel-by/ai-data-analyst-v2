@@ -40,8 +40,13 @@ cd backend
 echo "GEMINI_API_KEY=your_api_key_here" > .env
 cd ..
 
-# 2. Start everything with one command
+# 2. Start services
+# Option A: Start both together
 docker-compose up --build
+
+# Option B: Start separately
+docker-compose up -d backend   # Start backend only
+docker-compose up -d frontend  # Start frontend only
 
 # 3. Access the application
 # Frontend: http://localhost
@@ -50,6 +55,7 @@ docker-compose up --build
 ```
 
 **See [DOCKER_GUIDE.md](DOCKER_GUIDE.md) for complete Docker instructions**
+**See [DOCKER_SEPARATE.md](DOCKER_SEPARATE.md) for running services separately**
 
 ---
 
