@@ -27,6 +27,7 @@ export interface Message {
   code?: string;
   output?: string;
   chartUrl?: string;
+  downloadUrl?: string;
   modifiedData?: {
     beforeRows: number;
     afterRows: number;
@@ -103,7 +104,8 @@ export const typeConverters = {
       outputType: apiMessage.output_type,
       code: apiMessage.code,
       output: apiMessage.output,
-      chartUrl: apiMessage.plot_path,
+      chartUrl: apiMessage.plot_url || apiMessage.plot_path,
+      downloadUrl: apiMessage.download_url,
       modifiedData: apiMessage.modification_summary ? {
         beforeRows: apiMessage.modification_summary.before_rows || 0,
         afterRows: apiMessage.modification_summary.after_rows || 0,

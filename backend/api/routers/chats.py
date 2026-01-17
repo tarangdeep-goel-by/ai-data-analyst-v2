@@ -174,24 +174,40 @@ async def get_chat_messages(project_id: str, chat_id: str):
         # Get messages
         messages = cm.get_messages(project_id, chat_id)
 
-        return [
-            MessageResponse(
-                id=msg.id,
-                chat_id=msg.chat_id,
-                role=msg.role,
-                content=msg.content,
-                timestamp=msg.timestamp,
-                output_type=msg.output_type,
-                code=msg.code,
-                output=msg.output,
-                result=msg.result,
-                plot_path=msg.plot_path,
-                modified_dataframe_path=msg.modified_dataframe_path,
-                modification_summary=msg.modification_summary,
-                explanation=msg.explanation
-            )
-            for msg in messages
-        ]
+        result = []
+        for msg in messages:
+            # Build response with URLs for static files
+            response_data = {
+                "id": msg.id,
+                "chat_id": msg.chat_id,
+                "role": msg.role,
+                "content": msg.content,
+                "timestamp": msg.timestamp,
+                "output_type": msg.output_type,
+                "code": msg.code,
+                "output": msg.output,
+                "result": msg.result,
+                "plot_path": msg.plot_path,
+                "modified_dataframe_path": msg.modified_dataframe_path,
+                "modification_summary": msg.modification_summary,
+                "explanation": msg.explanation,
+                "plot_url": None,
+                "download_url": None
+            }
+
+            # Generate plot URL if plot exists
+            if msg.plot_path:
+                plot_filename = os.path.basename(msg.plot_path)
+                response_data["plot_url"] = f"/static/plots/{plot_filename}"
+
+            # Generate download URL if modified dataframe exists
+            if msg.modified_dataframe_path:
+                csv_filename = os.path.basename(msg.modified_dataframe_path)
+                response_data["download_url"] = f"/static/downloads/{csv_filename}"
+
+            result.append(MessageResponse(**response_data))
+
+        return result
     except HTTPException:
         raise
     except Exception as e:

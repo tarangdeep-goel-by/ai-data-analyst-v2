@@ -27,7 +27,9 @@ export interface MessageResponse {
   output?: string;
   result?: string;
   plot_path?: string;
+  plot_url?: string;
   modified_dataframe_path?: string;
+  download_url?: string;
   modification_summary?: Record<string, any>;
   explanation?: string;
 }

@@ -137,18 +137,35 @@ OUTPUT TYPES:
    - Examples: "Plot distribution", "Show trends over time", "Create correlation heatmap", "Bar chart of categories"
    - Code MUST save plot: plt.savefig('plot.png', bbox_inches='tight', dpi=100)
    - Code MUST call: plt.close()
-   - Example code:
+   - Example code for histogram:
      import matplotlib.pyplot as plt
-     import seaborn as sns
      df['column'].hist()
+     plt.title('Distribution of Column')
+     plt.xlabel('Value')
+     plt.ylabel('Frequency')
      plt.savefig('plot.png', bbox_inches='tight', dpi=100)
      plt.close()
+   - Example code for correlation heatmap:
+     import matplotlib.pyplot as plt
+     import seaborn as sns
+     corr = df[['col1', 'col2', 'col3']].corr()
+     plt.figure(figsize=(8, 6))
+     sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', center=0)
+     plt.title('Correlation Matrix')
+     plt.savefig('plot.png', bbox_inches='tight', dpi=100)
+     plt.close()
+   - Prefer visualization over tables for: correlations, distributions, trends
 
 3. **modification**: Creating a NEW/MODIFIED dataset that user wants to DOWNLOAD
    - Use this ONLY when: User explicitly wants to create/download a filtered/transformed dataset
    - Examples: "Give me users from NYC that I can download", "Create a subset with only 2024 data", "Add calculated column and let me download"
    - Code MUST assign result to 'result' variable
+   - CRITICAL: 'result' MUST be a DataFrame, NOT a Series
+   - When selecting specific columns, use double brackets: result = df[['col1', 'col2']] (DataFrame)
+   - NEVER use single brackets for column selection: df['col'] returns a Series (WRONG!)
    - Example code: result = df[df['state'] == 'CA']
+   - Example code: result = df[df['age'] > 25][['user_id', 'name', 'email']]  # Multiple columns
+   - Example code: result = df[df['active'] == True][['user_id']]  # Single column but as DataFrame
    - This creates a downloadable CSV file
    - DO NOT use this for calculations, correlations, or statistics - those are exploratory!
 
@@ -172,6 +189,16 @@ CODE QUALITY BEST PRACTICES:
 - For numeric columns, use the provided range information to validate filters
 - For categorical columns, use the provided top values to guide analysis
 
+SAFE STRING HANDLING:
+- NEVER use eval() - it's dangerous and causes errors
+- For parsing string representations of collections, use ast.literal_eval():
+  import ast
+  parsed_value = ast.literal_eval(string_value) if isinstance(string_value, str) else string_value
+- When checking if strings contain specific values, use .str.contains() or proper string methods:
+  df['column'].str.contains('value', na=False)
+- Always quote string literals in comparisons and function calls
+- For columns marked with ⚠️ in the context, you MUST use ast.literal_eval() to parse them first
+
 CRITICAL PRINCIPLES:
 - When asked to analyze or calculate, work with the ORIGINAL data values
 - Only transform/modify data when output_type is "modification" (user wants downloadable result)
@@ -179,6 +206,28 @@ CRITICAL PRINCIPLES:
 - Don't create intermediate transformed columns unless that's what the user explicitly requested
 - Example: For correlation → use df.corr(), NOT df with binary flags
 - Example: For group statistics → use df.groupby().agg(), NOT create new filtered dataframes
+
+OUTPUT FORMATTING FOR BETTER READABILITY:
+- Format output with clear sections using markdown-style headers
+- Add blank lines between sections for readability
+- For tables/DataFrames:
+  * Use .to_string() for clean formatting
+  * Round decimal numbers to 2-4 places: .round(3)
+  * For correlations, use .round(3) for easier reading
+- Provide interpretation AFTER showing numbers:
+  * "This shows a moderate positive correlation (0.35) between X and Y"
+  * "The average is 25.3, which is above the median of 20.1, suggesting a right-skewed distribution"
+- DO NOT print confusing empty/NaN results
+  * Check if result is empty before printing: if not result.empty:
+  * Replace "No results found" messages instead of printing NaN tables
+- Use descriptive labels: Instead of just printing numbers, add context
+  * GOOD: print(f"Total users with cars: {{count}} ({{percentage:.1f}}%)")
+  * BAD: print(count)
+- For correlation analysis specifically:
+  * Filter out NaN values before printing
+  * Only show correlations that meet the threshold
+  * If no strong correlations found, say so clearly - don't print empty tables
+  * Consider using visualization (heatmap) for correlation matrices
 """
 
         if business_context:
@@ -302,6 +351,10 @@ CRITICAL PRINCIPLES:
     def _execute_code(self, code: str, output_type: str) -> dict:
         """Execute Python code safely"""
         try:
+            # Debug logging
+            print(f"[DEBUG] Executing code (output_type={output_type})")
+            print(f"[DEBUG] DataFrame shape: {self.current_dataframe.shape if self.current_dataframe is not None else 'None'}")
+
             # Prepare execution environment
             exec_globals = {
                 'df': self.current_dataframe,
@@ -347,6 +400,9 @@ CRITICAL PRINCIPLES:
 
                     # Validate it's a DataFrame
                     if isinstance(modified_df, pd.DataFrame):
+                        print(f"[DEBUG] Modified DataFrame shape: {modified_df.shape}")
+                        print(f"[DEBUG] Modified DataFrame columns: {list(modified_df.columns)}")
+
                         # Save modified DataFrame to temp location
                         temp_dir = os.path.join(self.base_dir, "temp_modifications")
                         os.makedirs(temp_dir, exist_ok=True)
@@ -357,15 +413,18 @@ CRITICAL PRINCIPLES:
                         modified_df.to_csv(temp_path, index=False)
                         result_data["modified_dataframe_path"] = temp_path
 
-                        # Generate modification summary
+                        # Generate modification summary (matching frontend expectations)
+                        preview_data = modified_df.head(10).to_dict('records')
                         result_data["modification_summary"] = {
-                            "rows_before": len(self.current_dataframe),
-                            "rows_after": len(modified_df),
-                            "cols_before": len(self.current_dataframe.columns),
-                            "cols_after": len(modified_df.columns),
+                            "before_rows": len(self.current_dataframe),
+                            "after_rows": len(modified_df),
+                            "before_columns": len(self.current_dataframe.columns),
+                            "after_columns": len(modified_df.columns),
+                            "preview": preview_data,
                             "new_columns": list(set(modified_df.columns) - set(self.current_dataframe.columns)),
                             "removed_columns": list(set(self.current_dataframe.columns) - set(modified_df.columns))
                         }
+                        print(f"[DEBUG] Modification summary: rows {result_data['modification_summary']['before_rows']} → {result_data['modification_summary']['after_rows']}, preview rows: {len(preview_data)}")
                     else:
                         result_data["success"] = False
                         result_data["error"] = f"'result' variable is not a DataFrame (type: {type(modified_df).__name__})"
