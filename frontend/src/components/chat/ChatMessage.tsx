@@ -162,7 +162,17 @@ export function ChatMessage({ message }: ChatMessageProps) {
                   </div>
                 </div>
 
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => {
+                    if (message.downloadUrl) {
+                      window.open(`${import.meta.env.VITE_API_BASE_URL}${message.downloadUrl}`, '_blank');
+                    }
+                  }}
+                  disabled={!message.downloadUrl}
+                >
                   <Download className="w-3.5 h-3.5" />
                   Download CSV
                 </Button>

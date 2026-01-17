@@ -77,7 +77,9 @@ class MessageResponse(MessageBase):
     output: Optional[str] = None
     result: Optional[str] = None
     plot_path: Optional[str] = None
+    plot_url: Optional[str] = None  # URL for frontend to fetch plot
     modified_dataframe_path: Optional[str] = None
+    download_url: Optional[str] = None  # URL for CSV download
     modification_summary: Optional[Dict[str, Any]] = None
     explanation: Optional[str] = None
 
