@@ -1,5 +1,7 @@
 # AI Data Analyst v2.0 - Architecture Deep Dive
 
+> **Historical, as of 2026-11-01.** Written before the UI was built; it describes the intended design. In the code as built, generated code runs with plain `exec()` (not sandboxed, built-ins and filesystem available), the EDA context is recomputed rather than cached to `eda_context.json`, and AI modifications do not create new versions. Current state: see `../README.md` and `../docs/NOTES.md`.
+
 **Purpose:** Understand the complete architecture before building the UI
 
 ---
@@ -298,7 +300,7 @@ results = cm.search_messages(project_id, chat.id, "revenue")
 
 **Key Features:**
 - Auto-detect output type (table, plot, metric, text)
-- Safe code execution (sandboxed environment)
+- Code execution with plain `exec()` (planned as sandboxed; as built it is not sandboxed)
 - Gemini chat history (maintains conversation context)
 - DataFrame always available as 'df' in code
 
@@ -536,7 +538,8 @@ data/
 
 ### 1. Safe Code Execution
 ```python
-# Sandboxed environment (no file system access)
+# PLANNED sandbox. As built (src/ai_agent.py) this is NOT a sandbox: globals are
+# df, pd, plt, np, sns and normal built-ins (open, import) remain available.
 exec_globals = {
     'df': dataframe,  # Only DataFrame available
     'pd': pd,

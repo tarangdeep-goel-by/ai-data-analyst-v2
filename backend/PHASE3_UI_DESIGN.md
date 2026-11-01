@@ -1,5 +1,7 @@
 # Phase 3: Streamlit UI Design Specification
 
+> **Historical, as of 2026-11-01.** Design spec for the Streamlit UI (`chat_analyst_ui.py`); the main UI is now the React app in `../frontend`. Current state: see `../README.md` and `../docs/NOTES.md`.
+
 ## Design Philosophy
 
 Inspired by Claude AI's 2025 interface and modern data analysis tools (ChatGPT Advanced Data Analysis, Julius AI), with emphasis on:

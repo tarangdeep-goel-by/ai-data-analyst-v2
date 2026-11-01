@@ -7,7 +7,7 @@ FastAPI-based REST API for the AI Data Analyst backend. This API enables convers
 ```
 ┌─────────────────┐         ┌──────────────────┐         ┌──────────────────┐
 │   React UI      │  HTTP   │   FastAPI        │  Uses   │  Existing Core   │
-│  (Port 5173)    │ ◄─────► │   (Port 8000)    │ ◄─────► │  (ProjectMgr,    │
+│  (Port 8080)    │ ◄─────► │   (Port 8000)    │ ◄─────► │  (ProjectMgr,    │
 │                 │         │                  │         │   ChatMgr, etc)  │
 └─────────────────┘         └──────────────────┘         └──────────────────┘
 ```
@@ -154,14 +154,16 @@ The API serves static files for:
 
 The API is configured to allow requests from:
 
-- `http://localhost:5173` (Vite dev server)
-- `http://localhost:3000` (Alternative dev port)
-- `http://127.0.0.1:5173`
-- `http://127.0.0.1:3000`
+- `http://localhost:8080` (Vite dev server, per `frontend/vite.config.ts`)
+- `http://localhost:5173`
+- `http://localhost:3000`
+- `http://127.0.0.1:8080`, `http://127.0.0.1:5173`, `http://127.0.0.1:3000`
+
+The Docker Compose frontend (`http://localhost`, port 80) is not in this list.
 
 ## Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the `backend/` directory:
 
 ```env
 # Required
@@ -170,6 +172,8 @@ GEMINI_API_KEY=your_gemini_api_key_here
 # Optional
 DATA_DIR=data  # Default data directory
 ```
+
+Static files are always served from `data/plots` and `data/temp_modifications` (hard-coded in `api/main.py`), so keep `DATA_DIR=data`.
 
 ## Example API Usage
 
@@ -359,7 +363,7 @@ pip3 install -r requirements.txt
 ### CORS Errors in Frontend
 
 If you get CORS errors, verify:
-1. Frontend is running on an allowed origin (localhost:5173 or localhost:3000)
+1. Frontend is running on an allowed origin (localhost:8080, 5173 or 3000)
 2. CORS middleware is properly configured in `api/main.py`
 
 ## License

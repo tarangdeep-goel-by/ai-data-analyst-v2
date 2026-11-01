@@ -20,14 +20,15 @@ docker-compose --version
 
 ### 1. Set Your Gemini API Key
 
-Create a `.env` file in the `backend` directory:
+Export the key in your shell (Compose interpolates `${GEMINI_API_KEY}`), and create `backend/.env` because Compose mounts it:
 
 ```bash
+export GEMINI_API_KEY=your_api_key_here
 cd backend
 echo "GEMINI_API_KEY=your_api_key_here" > .env
 ```
 
-Or add it to `docker-compose.yml` directly (line 14).
+The mounted `backend/.env` alone does not supply the key: Compose always sets `GEMINI_API_KEY` (empty if not exported) and python-dotenv does not override an existing variable. Alternatively, hard-code it in `docker-compose.yml` under `backend.environment`.
 
 ### 2. Build and Start
 
@@ -122,19 +123,16 @@ ai-data-analyst-app/
 
 ### Environment Variables
 
-#### Backend (.env file)
+#### Backend (docker-compose.yml `environment`)
 ```env
-GEMINI_API_KEY=your_actual_api_key_here
-API_HOST=0.0.0.0
-API_PORT=8000
+GEMINI_API_KEY=${GEMINI_API_KEY}   # from your shell
+API_HOST=0.0.0.0                   # set but not read; run_api.py always binds 0.0.0.0:8000
+API_PORT=8000                      # set but not read
 DATA_DIR=/app/data
 ```
 
-#### Frontend (docker-compose.yml)
-```yaml
-environment:
-  - VITE_API_BASE_URL=http://localhost:8000
-```
+#### Frontend
+`VITE_API_BASE_URL` is a build-time variable. The value in `docker-compose.yml` is a runtime env var on the nginx container and has no effect on the built bundle. The build uses `frontend/.env` if it exists; most calls fall back to `http://localhost:8000`, but the CSV download button needs it set.
 
 ### Port Configuration
 
@@ -237,7 +235,8 @@ cd ai-data-analyst-v2
 # Checkout React branch
 git checkout react-frontend
 
-# Add your API key
+# Add your API key (exported; backend/.env must also exist for the mount)
+export GEMINI_API_KEY=your_key
 cd backend
 echo "GEMINI_API_KEY=your_key" > .env
 cd ..
@@ -271,9 +270,9 @@ lsof -ti:8000 | xargs kill -9
 # Check if .env file exists
 cat backend/.env
 
-# If not, create it
-cd backend
-echo "GEMINI_API_KEY=your_actual_key" > .env
+# The key must be exported in the shell that runs Compose;
+# backend/.env does not override the (possibly empty) value Compose sets
+export GEMINI_API_KEY=your_actual_key
 
 # Rebuild
 docker-compose up --build
@@ -294,6 +293,8 @@ docker-compose logs backend
 # Restart backend
 docker-compose restart backend
 ```
+
+CORS: the frontend container is served from `http://localhost` (port 80), which is not in the allow list in `backend/api/main.py` (ports 5173, 3000, 8080 only). Add `http://localhost` there if browser requests are blocked.
 
 ### Build Fails
 

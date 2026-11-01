@@ -260,7 +260,7 @@ curl -X GET "http://localhost:8000/api/chats/550e8400-e29b-41d4-a716-44665544000
     "role": "assistant",
     "content": "Here are the first 5 rows of your dataset:",
     "timestamp": "2026-01-08T08:01:05",
-    "code": "result = df.head(5).to_string()",
+    "code": "print(df.head(5))",
     "output": "   age  name  salary\n0   25  John   50000\n...",
     "output_type": "exploratory",
     "plot_path": null,
@@ -317,16 +317,21 @@ curl -X POST "http://localhost:8000/api/ai/{project_id}/{chat_id}/query" \
   }'
 ```
 
+Response fields (from `AIQueryResponse` in `backend/api/schemas.py`): `success`, `output_type`, `code`, `explanation`, `output`, `result`, `plot_path`, `plot_url`, `modified_dataframe_path`, `download_url`, `modification_summary`, `error`. On failure the status is still 200, with `success: false` and `error` set.
+
 **Expected Response (Exploratory):**
 ```json
 {
   "success": true,
-  "message": "Query processed successfully",
   "output_type": "exploratory",
+  "code": "print(df.head(10))",
+  "explanation": "Showing the first 10 rows",
+  "output": "   age  name  salary\n0   25  John   50000\n1   30  Jane   60000\n...",
   "result": "   age  name  salary\n0   25  John   50000\n1   30  Jane   60000\n...",
-  "code_executed": "result = df.head(10).to_string()",
   "plot_url": null,
-  "modification_summary": null
+  "download_url": null,
+  "modification_summary": null,
+  "error": null
 }
 ```
 
@@ -334,12 +339,15 @@ curl -X POST "http://localhost:8000/api/ai/{project_id}/{chat_id}/query" \
 ```json
 {
   "success": true,
-  "message": "Query processed successfully",
   "output_type": "visualization",
-  "result": "Created bar chart showing age distribution",
-  "code_executed": "plt.figure(figsize=(10,6))\ndf['age'].value_counts().plot(kind='bar')\n...",
-  "plot_url": "/static/plots/plot-uuid.png",
-  "modification_summary": null
+  "code": "plt.figure(figsize=(10,6))\ndf['age'].value_counts().plot(kind='bar')\nplt.savefig('plot.png', bbox_inches='tight', dpi=100)\nplt.close()",
+  "explanation": "Bar chart of the age distribution",
+  "output": "",
+  "plot_path": "data/plots/plot_<chat_id>.png",
+  "plot_url": "/static/plots/plot_<chat_id>.png",
+  "download_url": null,
+  "modification_summary": null,
+  "error": null
 }
 ```
 
@@ -347,11 +355,12 @@ curl -X POST "http://localhost:8000/api/ai/{project_id}/{chat_id}/query" \
 ```json
 {
   "success": true,
-  "message": "Query processed successfully",
   "output_type": "modification",
-  "result": "Removed 50 rows with null age values",
-  "code_executed": "df = df.dropna(subset=['age'])\nresult = f'Removed rows...'",
-  "plot_url": null,
+  "code": "result = df.dropna(subset=['age'])",
+  "explanation": "Removed rows with null age values",
+  "output": "",
+  "modified_dataframe_path": "data/temp_modifications/<chat_id>_<hex8>.csv",
+  "download_url": "/static/downloads/<chat_id>_<hex8>.csv",
   "modification_summary": {
     "before_rows": 1000,
     "after_rows": 950,
@@ -360,10 +369,15 @@ curl -X POST "http://localhost:8000/api/ai/{project_id}/{chat_id}/query" \
     "preview": [
       {"age": 25, "name": "John"},
       {"age": 30, "name": "Jane"}
-    ]
-  }
+    ],
+    "new_columns": [],
+    "removed_columns": []
+  },
+  "error": null
 }
 ```
+
+The modification is a download only; the project's `current.csv` is not changed.
 
 ---
 
@@ -384,7 +398,7 @@ curl -X DELETE "http://localhost:8000/api/chats/550e8400-e29b-41d4-a716-44665544
 ```json
 {
   "success": true,
-  "message": "Chat deleted successfully"
+  "message": "Chat deleted"
 }
 ```
 
@@ -407,7 +421,7 @@ curl -X DELETE "http://localhost:8000/api/projects/550e8400-e29b-41d4-a716-44665
 ```json
 {
   "success": true,
-  "message": "Project deleted successfully"
+  "message": "Project deleted"
 }
 ```
 
@@ -418,12 +432,12 @@ curl -X DELETE "http://localhost:8000/api/projects/550e8400-e29b-41d4-a716-44665
 **Clear the AI conversation context for a chat**
 
 ```bash
-curl -X DELETE "http://localhost:8000/api/ai/{project_id}/session"
+curl -X DELETE "http://localhost:8000/api/ai/{project_id}/{chat_id}/session"
 ```
 
 **Example:**
 ```bash
-curl -X DELETE "http://localhost:8000/api/ai/550e8400-e29b-41d4-a716-446655440000/session"
+curl -X DELETE "http://localhost:8000/api/ai/550e8400-e29b-41d4-a716-446655440000/chat-uuid-1/session"
 ```
 
 **Expected Response:**
@@ -447,7 +461,7 @@ http://localhost:8000/static/plots/{plot_filename}
 
 **Example:**
 ```bash
-curl -o chart.png "http://localhost:8000/static/plots/abc123-plot.png"
+curl -o chart.png "http://localhost:8000/static/plots/plot_chat-uuid-1.png"
 ```
 
 ---

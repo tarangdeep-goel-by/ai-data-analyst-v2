@@ -25,9 +25,7 @@ nano .env
 Add to `.env`:
 ```env
 GEMINI_API_KEY=your_actual_api_key_here
-DATABASE_URL=sqlite:///./data/app.db
-API_HOST=0.0.0.0
-API_PORT=8000
+# Optional, default shown (keep it "data": static mounts are hard-coded to data/plots and data/temp_modifications)
 DATA_DIR=data
 ```
 
@@ -87,14 +85,13 @@ npm run dev
 ```
   VITE v5.4.19  ready in 500 ms
 
-  ➜  Local:   http://localhost:5173/
+  ➜  Local:   http://localhost:8080/
   ➜  Network: use --host to expose
   ➜  press h + enter to show help
 ```
 
 **Access the Application:**
-- Open browser: **http://localhost:5173/** (or the port shown)
-- Or: **http://localhost:8080/** (if running on different port)
+- Open browser: **http://localhost:8080/** (port set in `frontend/vite.config.ts`)
 
 ---
 
@@ -142,7 +139,7 @@ curl http://localhost:8000/health
 Should return: `{"status":"healthy","gemini_configured":true}`
 
 ### 2. Test Frontend
-1. Open http://localhost:5173 (or 8080)
+1. Open http://localhost:8080
 2. Click "New Project" button
 3. Upload the `test_data.csv` file
 4. Should see success toast and project in sidebar
@@ -179,21 +176,14 @@ cd backend
 pip3 install -r requirements.txt
 ```
 
-**Database locked:**
-```bash
-cd backend
-rm data/app.db
-# Restart backend - will recreate
-```
-
 ---
 
 ### Frontend Issues
 
-**Port 5173 already in use:**
+**Port 8080 already in use:**
 ```bash
-# Kill process on port 5173
-lsof -ti:5173 | xargs kill -9
+# Kill process on port 8080
+lsof -ti:8080 | xargs kill -9
 
 # Or Vite will suggest alternative port
 # Use the port shown in terminal
@@ -202,9 +192,10 @@ lsof -ti:5173 | xargs kill -9
 **CORS errors in browser console:**
 - Check backend is running on port 8000
 - Check browser URL matches allowed origins:
+  - ✅ http://localhost:8080 (Vite dev server)
   - ✅ http://localhost:5173
-  - ✅ http://localhost:8080
   - ✅ http://localhost:3000
+  - (and the same ports on 127.0.0.1)
 - If using different port, add to `backend/api/main.py` CORS config
 
 **Module not found / Build errors:**
@@ -272,7 +263,7 @@ ai-data-analyst-app/
 - Generates visualizations
 - Serves static files (plots, downloads)
 
-### Frontend (Port 5173 or 8080)
+### Frontend (Port 8080)
 - User interface
 - File upload dialog
 - Project management
@@ -288,15 +279,14 @@ ai-data-analyst-app/
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `GEMINI_API_KEY` | ✅ Yes | - | Google Gemini API key |
-| `DATABASE_URL` | No | `sqlite:///./data/app.db` | Database connection |
-| `API_HOST` | No | `0.0.0.0` | Backend host |
-| `API_PORT` | No | `8000` | Backend port |
-| `DATA_DIR` | No | `data` | Data storage directory |
+| `DATA_DIR` | No | `data` | Data storage directory (keep as `data`; static mounts are hard-coded) |
+
+There is no database. The backend reads only these two variables; `run_api.py` always binds `0.0.0.0:8000`.
 
 ### Frontend `.env`
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `VITE_API_BASE_URL` | No | `http://localhost:8000` | Backend API URL |
+| `VITE_API_BASE_URL` | Recommended | `http://localhost:8000` | Backend API URL (the CSV download button has no fallback, so set it) |
 
 ---
 
@@ -341,7 +331,7 @@ npm run preview                            # Preview production build
 
 # Kill ports
 lsof -ti:8000 | xargs kill -9             # Kill backend
-lsof -ti:5173 | xargs kill -9             # Kill frontend
+lsof -ti:8080 | xargs kill -9             # Kill frontend
 
 # Logs
 tail -f backend/api.log                    # Watch backend logs (if configured)
@@ -351,4 +341,4 @@ tail -f backend/api.log                    # Watch backend logs (if configured)
 
 ## 🎉 You're Ready!
 
-Start both servers and navigate to http://localhost:5173 (or 8080) to begin analyzing your data!
+Start both servers and navigate to http://localhost:8080 to begin analyzing your data!

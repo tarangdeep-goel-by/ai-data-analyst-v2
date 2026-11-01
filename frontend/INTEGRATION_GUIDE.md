@@ -330,7 +330,7 @@ npm run dev
 ### Test Scenarios
 
 #### 1. Projects List
-- [ ] Open http://localhost:5173
+- [ ] Open http://localhost:8080
 - [ ] Sidebar should load and display projects from API
 - [ ] Should show loading state while fetching
 - [ ] Projects should match those in backend
@@ -386,7 +386,7 @@ npm run dev
 **Solution:** Check that backend is running on port 8000
 
 ### Issue: "CORS Error"
-**Solution:** Verify CORS middleware in `api/main.py` includes frontend URL (localhost:5173)
+**Solution:** Verify CORS middleware in `api/main.py` includes frontend URL (localhost:8080 for the Vite dev server)
 
 ### Issue: Types mismatch errors
 **Solution:** Check type converters in `src/types/index.ts` match API response structure
@@ -480,8 +480,8 @@ python3 run_api.py
 cd ./frontend
 npm run dev
 
-# Open browser: http://localhost:5173
+# Open browser: http://localhost:8080
 ```
 
 **Backend API running at:** http://localhost:8000
-**Frontend running at:** http://localhost:5173
+**Frontend running at:** http://localhost:8080

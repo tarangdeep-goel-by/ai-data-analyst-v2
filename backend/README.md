@@ -1,18 +1,18 @@
 # AI Data Analyst v2.0
 
-A multi-project AI-powered data analysis tool with conversational interface, built with Gemini API and Streamlit.
+A multi-project AI-powered data analysis tool with conversational interface, built with Gemini API. This directory holds the FastAPI backend (`api/`, run with `python3 run_api.py`) used by the React app in `../frontend`, plus the older Streamlit UI described below. See the root `README.md` and `docs/NOTES.md` for the current, code-checked description.
 
 ## 🎯 Features
 
 - **Multi-Project Support**: Manage multiple data analysis projects with full isolation
 - **Multi-Chat Interface**: Multiple conversation threads per project
-- **Automatic Version Control**: Git-like versioning for CSV data with auto-change detection
+- **Version Manager**: Git-like versioning for CSV data with auto-change detection. Only the initial snapshot on upload is wired up; AI modifications do not create new versions, and revert is not exposed in any UI or API route
 - **AI-Powered Analysis**: Natural language queries powered by Google Gemini
 - **Three Query Types**:
   - **Exploratory**: Answer questions, calculate metrics
   - **Visualization**: Generate plots and charts
   - **Modification**: Transform data with downloadable results
-- **Atomic Operations**: Safe file operations with data integrity guarantees
+- **Atomic JSON writes**: temp file, then rename (CSV writes are plain `to_csv`)
 
 ## 📦 Installation
 
@@ -73,7 +73,11 @@ ai_data_analyst_v2/
 │   ├── project_manager.py     # Project operations
 │   ├── chat_manager.py        # Chat operations
 │   ├── version_manager.py     # Version control for data
+│   ├── ai_agent.py            # Gemini session, prompt, exec()
+│   ├── eda_utils.py           # Dataset profile sent to the model
 │   └── utils.py               # Atomic writes and utilities
+├── api/                       # FastAPI app and routers
+├── run_api.py                 # Starts the API on 0.0.0.0:8000
 ├── test_phase1.py             # Phase 1 comprehensive tests
 ├── requirements.txt           # Python dependencies
 └── README.md                  # This file
@@ -88,10 +92,10 @@ ai_data_analyst_v2/
   - Comprehensive testing
 - [x] **Phase 2**: AI Agent Integration (Complete)
   - Gemini API integration with JSON responses
-  - Code generation and safe execution
+  - Code generation and execution (plain `exec()` in the backend process, not sandboxed)
   - Three query types (exploratory, visualization, modification)
   - Markdown stripping and robust JSON parsing
-  - Chat history persistence
+  - Chat history persistence (Gemini history is saved per chat but not restored when a session restarts)
 - [x] **Phase 3**: Streamlit UI (Complete)
   - Modern Claude-inspired interface with glass effects
   - Three-level navigation (App → Project → Chat)
@@ -131,13 +135,13 @@ ai_data_analyst_v2/
 Run tests:
 ```bash
 python3 test_phase1.py   # Core infrastructure tests
-python3 test_phase2.py   # AI agent tests (requires GEMINI_API_KEY)
+python3 test_phase2.py   # AI agent tests (requires GEMINI_API_KEY exported in the shell; it does not read .env)
 ```
 
 ## 🔒 Data Safety
 
-- Atomic file writes (temp + rename pattern)
-- Automatic backups on version changes
+- Atomic JSON writes (temp + rename pattern)
+- Initial CSV snapshot kept in `versions/` on upload
 - Safe file operations with error handling
 - Data directory excluded from Git
 

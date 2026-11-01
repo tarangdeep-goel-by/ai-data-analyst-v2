@@ -1,5 +1,7 @@
 # AI Data Analyst v2.0 - Complete Architecture Summary
 
+> **Historical, as of 2026-11-01.** This is the January 2026 rebuild guide; it assumes a Streamlit frontend and describes a Gemini-history restore path that the current code does not have. Current state: see `../README.md` and `../docs/NOTES.md`.
+
 **Date**: January 7, 2026
 **Status**: Implementation guide for fresh rebuild with Git
 

@@ -61,11 +61,11 @@ docker run -d \
   -p 8000:8000 \
   -v ai-analyst-data:/app/data \
   -e GEMINI_API_KEY=your_actual_api_key_here \
-  -e API_HOST=0.0.0.0 \
-  -e API_PORT=8000 \
   --restart unless-stopped \
   ai-analyst-backend
 ```
+
+(`API_HOST`/`API_PORT` are not read by the backend; it always binds `0.0.0.0:8000` inside the container.)
 
 **Verify backend is running:**
 ```bash
@@ -298,13 +298,14 @@ docker run -d \
 # Access at: http://localhost:3000
 ```
 
-**Note:** If you change the backend port, update the frontend environment variable:
+**Note:** If you change the backend port, the frontend must be rebuilt with the new URL. `VITE_API_BASE_URL` is baked in at build time, so passing it with `docker run -e` has no effect. Set it in `frontend/.env` before building:
 
 ```bash
+echo "VITE_API_BASE_URL=http://localhost:9000" > frontend/.env
+docker build -t ai-analyst-frontend ./frontend
 docker run -d \
   --name ai-analyst-frontend \
   -p 3000:80 \
-  -e VITE_API_BASE_URL=http://localhost:9000 \
   ai-analyst-frontend
 ```
 
@@ -378,7 +379,7 @@ docker run -d ... # (full command)
    curl http://localhost:8000/health
    ```
 
-2. **Check CORS settings** in `backend/api/main.py`
+2. **Check CORS settings** in `backend/api/main.py`. The allow list covers ports 5173, 3000 and 8080 only; a frontend on `http://localhost` (port 80) must be added.
 
 3. **Clear browser cache** and hard refresh (Ctrl+Shift+R)
 

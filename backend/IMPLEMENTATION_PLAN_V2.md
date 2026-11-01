@@ -1,5 +1,7 @@
 # AI Data Analyst v2.0 - Multi-File Architecture Implementation Plan
 
+> **Historical, as of 2026-11-01.** This is the January 2026 plan; parts were built differently or not at all (no judge agent, versioning not wired to the API/UI, React frontend instead of Streamlit). Current state: see `../README.md` and `../docs/NOTES.md`.
+
 **Status:** Planning Complete - Ready for Implementation
 **Date:** January 6, 2026
 **Estimated Duration:** 3-4 weeks

@@ -1,71 +1,87 @@
-# AI Data Analyst
+# AI Data Analyst v2
 
-A local full-stack application for conversational analysis of CSV files. Upload a dataset, inspect its automatically generated profile, organize analysis into chats, and ask Gemini to generate pandas code for calculations, visualizations, or downloadable transformations.
+A local full-stack app for asking questions about CSV files in plain English. Upload a dataset, look at its automatic profile, keep several chats per dataset, and have Google Gemini write pandas code that the backend runs against the full DataFrame. Answers come back as printed text, a matplotlib chart, or a downloadable CSV.
 
-The project pairs a React/TypeScript interface with a FastAPI backend. Project metadata, chat history, dataset snapshots, plots, and generated CSVs are stored on the local filesystem; no database server is required.
+React/TypeScript frontend, FastAPI backend. Projects, chats, dataset snapshots, plots and generated CSVs live on the local filesystem. There is no database.
 
-> **Security boundary:** Gemini-generated Python is executed with `exec()` in the backend process. The current execution environment exposes pandas, NumPy, matplotlib, seaborn, and normal Python built-ins; it is not an OS-level sandbox. Run this application only for trusted users and data, on a machine or container where generated code cannot reach sensitive resources.
+> **Security boundary:** Gemini-generated Python runs with `exec()` inside the backend process, with pandas, NumPy, matplotlib, seaborn and the normal Python built-ins available. It is not a sandbox. Only run this for trusted users and data, on a machine or container where generated code cannot reach anything sensitive.
 
-## Why this exists
+## Background
 
-A lot of useful data arrives as a CSV, but answering even a simple follow-up question often means opening a notebook, remembering pandas syntax, cleaning the file, and rebuilding the context the next time you return. The person with the question and the person who can write the analysis are often not the same person.
+v1 was a single-file Streamlit app: one CSV, one chat, nothing kept after a refresh (see `backend/IMPLEMENTATION_PLAN_V2.md`). v2 splits the logic into managers with file-based persistence, so each dataset becomes a project with its own profile and conversations that survive a restart. A later Streamlit UI built on the v2 managers is still in `backend/chat_analyst_ui.py`; the React app in `frontend/` is the main UI.
 
-The first version of this project proved that a user could ask questions in plain language and have an AI work against the full DataFrame. It also exposed the limits of a one-file, one-session demo: refresh the app and the working context disappeared; upload another dataset and the previous conversation was in the way.
+## How it got here
 
-Version 2 turns that experiment into a small analysis workspace. Each dataset becomes a project with its own profile and conversations, results can be charts or downloadable transformations, and the work survives a restart. The goal is not to replace a data scientist. It is to shorten the distance between “I have this file” and “I understand what it says,” while still showing the generated code and preserving the underlying data.
+Full reasoned history in `docs/NOTES.md` ("Evolution").
+
+1. **Mar 2025, dashboard platform** ([Project3](https://github.com/tarangdeep-goel-by/Project3), [882e5b7](https://github.com/tarangdeep-goel-by/Project3/commit/882e5b7)): React + FastAPI aggregation, formula metrics and WebSocket backends. No LLM.
+2. **Mar-Apr 2025, CSV visualiser** ([csv-data-visualizer](https://github.com/tarangdeep-goel-by/csv-data-visualizer), [35a56ac](https://github.com/tarangdeep-goel-by/csv-data-visualizer/commit/35a56ac) to [55f0118](https://github.com/tarangdeep-goel-by/csv-data-visualizer/commit/55f0118)): dimension/metric classification, filters, aggregation, Recharts charts, value comparison, filtered download.
+3. **May 2025, files and saved views** ([fa88f39](https://github.com/tarangdeep-goel-by/csv-data-visualizer/commit/fa88f39), [d54fb09](https://github.com/tarangdeep-goel-by/csv-data-visualizer/commit/d54fb09), [9f901a3](https://github.com/tarangdeep-goel-by/csv-data-visualizer/commit/9f901a3)): several files, each with saved filter views and data snapshots; Docker.
+4. **By 6 Jan 2026, v1 Streamlit chat** (app not in git; see `backend/IMPLEMENTATION_PLAN_V2.md`, and its `auto_eda.py` committed in c010103): Gemini writes pandas for one CSV, run on the full DataFrame. One file, one chat, lost on refresh.
+5. **8 Jan 2026, v2 rebuild** ([c010103](https://github.com/tarangdeep-goel-by/ai-data-analyst-v2/commit/c010103)): managers with file persistence, projects with many chats, FastAPI, React UI; Streamlit UI kept on the same managers.
+6. **10-17 Jan 2026, Docker and prompt fixes** ([7d61566](https://github.com/tarangdeep-goel-by/ai-data-analyst-v2/commit/7d61566), [fd359ff](https://github.com/tarangdeep-goel-by/ai-data-analyst-v2/commit/fd359ff)); public-release cleanup in Apr 2026 ([bb485ad](https://github.com/tarangdeep-goel-by/ai-data-analyst-v2/commit/bb485ad)).
+
+No stage uses tool or function calling: today it is one Gemini call per question returning JSON + code, run with `exec()`.
 
 ## Features
 
-- CSV upload and project management
-- Automatic dataset context: shape, types, null counts, numeric ranges, samples, and low-cardinality distributions
-- Multiple persistent chat threads per project
-- Natural-language exploratory analysis with captured textual output
-- Generated matplotlib/seaborn visualizations served back to the UI
-- Downloadable CSV transformations with before/after summaries and previews
-- Initial dataset snapshot plus reusable file-based version-management primitives
-- Local JSON and CSV persistence with atomic JSON writes
-- Interactive OpenAPI documentation from FastAPI
-- Docker Compose and separate local-development workflows
+- CSV upload and project management (list, open, delete)
+- Dataset profile modal: shape, dtypes, null percentages, numeric/categorical column counts and the first 10 rows. The text profile sent to the model also has numeric ranges, low-cardinality value counts and a warning for columns that hold stringified lists/sets/dicts
+- Multiple persistent chats per project
+- Three answer types chosen by the model per question:
+  - `exploratory`: printed text output
+  - `visualization`: a matplotlib/seaborn PNG
+  - `modification`: a transformed DataFrame offered as a CSV download, with before/after row and column counts and a 10-row preview
+- Generated code shown with each answer (collapsible, copyable)
+- Initial dataset snapshot on upload, plus a file-based version manager (new version, revert, cleanup) that is not yet wired to the API or UI
+- Atomic JSON writes (temp file, then rename)
+- OpenAPI docs from FastAPI
+- Docker Compose setup
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    User[Browser] --> UI[React + Zustand UI]
-    UI --> API[FastAPI routers]
+    User[Browser] --> UI["React + Zustand UI"]
+    UI -->|"HTTP JSON"| API[FastAPI routers]
 
     API --> Projects[ProjectManager]
     API --> Chats[ChatManager]
-    API --> Agent[AIAgent]
+    API --> Agents["active_agents dict (one AIAgent per chat)"]
 
     Projects --> State[StateManager]
     Projects --> Versions[VersionManager]
     Chats --> State
+    State --> JSON[("metadata.json, chats/*.json")]
+    Versions --> CSV[("current.csv, versions/v1_*.csv")]
 
-    State --> Files[(JSON metadata and chats)]
-    Versions --> CSV[(current.csv and version snapshots)]
-
-    Agent --> Context[Generated EDA context]
-    Agent --> Gemini[Google Gemini]
-    Gemini --> Code[Generated Python]
-    Code --> Exec[Backend exec environment]
-    Exec --> Output[Text, PNG, or transformed CSV]
-    Output --> API
+    Agents --> Chats
+    Agents --> EDA["eda_utils: dataset profile"]
+    Agents -->|"system prompt + question"| Gemini["Gemini 2.0 Flash (exp)"]
+    Gemini -->|"JSON: output_type, code, explanation"| Agents
+    Agents --> Exec["exec() with df, pd, np, plt, sns"]
+    Exec --> Text[stdout text]
+    Exec --> Plot["data/plots/plot_chatid.png"]
+    Exec --> Download["data/temp_modifications/*.csv"]
+    Plot --> Static["/static/plots"]
+    Download --> Static2["/static/downloads"]
 ```
 
 ### Request flow
 
-1. `POST /api/projects/upload` parses a CSV with pandas, creates project metadata, writes `current.csv` and the initial version snapshot, generates a default chat, and stores everything below `DATA_DIR`.
-2. `GET /api/projects/{project_id}/context` profiles the current DataFrame for the data-context view.
-3. `POST /api/ai/{project_id}/{chat_id}/query` starts or reuses an in-memory Gemini session seeded with the dataset profile.
-4. Gemini returns JSON containing an output type, Python code, and an explanation.
-5. The backend executes the code against the current DataFrame and captures one of three outputs:
-   - `exploratory`: printed text
-   - `visualization`: a generated `plot.png`, moved into the plots directory
-   - `modification`: a DataFrame assigned to `result`, exported as a temporary downloadable CSV
-6. Successful user and assistant messages, generated code, output paths, and Gemini history are written to the chat file.
+1. `POST /api/projects/upload` parses the CSV with pandas, creates `metadata.json`, writes `current.csv` and `versions/v1_<timestamp>.csv`, and creates a default chat named "Chat 1".
+2. `GET /api/projects/{project_id}/context` profiles `current.csv` for the data-context modal.
+3. `POST /api/ai/{project_id}/{chat_id}/query` looks up an `AIAgent` for that chat in a process-wide dict. If there is none, it loads `current.csv`, builds the text profile (`backend/src/eda_utils.py`), starts a new Gemini chat, and sends the system prompt as the first message.
+4. The question is sent to that Gemini chat. The reply must be JSON with `output_type`, `code` and `explanation`; a surrounding Markdown code fence is stripped before parsing.
+5. The backend runs the code with `exec()` and captures:
+   - `exploratory`: stdout
+   - `visualization`: the code must save `plot.png` in the working directory; it is moved to `data/plots/plot_<chat_id>.png`
+   - `modification`: the code must assign a DataFrame to `result`; it is written to `data/temp_modifications/<chat_id>_<hex>.csv`
+6. The user message is written to the chat JSON before the model call. On success, the assistant message (with code, output, file paths and summary) and the serialised Gemini history are written too, and the frontend reloads the chat's messages. The model never sees the printed output or chart, only its own JSON replies.
 
-Generated modifications are downloads; the current API does not promote them into a new active project version. The version manager supports additional snapshots and reverts internally, but those operations are not exposed in the current web UI or routers.
+One model call per question. If the generated code fails, the error is returned; there is no automatic retry.
+
+Modifications are downloads only. They do not update `current.csv` or create a new version.
 
 ## Repository layout
 
@@ -74,69 +90,71 @@ Generated modifications are downloads; the current API does not promote them int
 ├── backend/
 │   ├── api/
 │   │   ├── main.py              # FastAPI app, CORS, static mounts
-│   │   ├── schemas.py           # Request and response models
-│   │   └── routers/             # Projects, chats, and AI query endpoints
+│   │   ├── schemas.py           # Pydantic request/response models
+│   │   └── routers/             # projects.py, chats.py, ai_query.py
 │   ├── src/
-│   │   ├── ai_agent.py          # Gemini session, response parsing, code execution
+│   │   ├── ai_agent.py          # Gemini session, system prompt, JSON parsing, exec()
+│   │   ├── eda_utils.py         # Dataset profile sent to the model
 │   │   ├── project_manager.py   # Project orchestration
-│   │   ├── chat_manager.py      # Chat and message persistence
-│   │   ├── version_manager.py   # CSV snapshots and revert primitives
-│   │   ├── state_manager.py     # Atomic JSON persistence
-│   │   └── eda_utils.py         # Dataset profiling for model/UI context
+│   │   ├── chat_manager.py      # Chats, messages, stored Gemini history
+│   │   ├── version_manager.py   # CSV snapshots, revert, cleanup
+│   │   ├── state_manager.py     # File layout and JSON persistence
+│   │   ├── models.py            # Project, Chat, Message, Version dataclasses
+│   │   └── utils.py             # Atomic JSON writes, path helpers
+│   ├── chat_analyst_ui.py       # Older Streamlit UI on the same backend modules
+│   ├── auto_eda.py              # v1-era standalone EDA script (not used by the API)
+│   ├── test_phase1.py           # Manager/persistence tests (no Gemini)
+│   ├── test_phase2.py           # Live Gemini tests
+│   ├── demo_backend.py
 │   ├── run_api.py
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── components/          # App shell, projects, chats, modals, UI primitives
+│   │   ├── components/          # layout, project, chat, modals, shadcn/ui primitives
 │   │   ├── services/            # Typed HTTP clients
-│   │   ├── store/appStore.ts    # Zustand application state
-│   │   ├── types/               # API-to-UI type conversion
-│   │   └── config/api.ts        # API URL and endpoint map
+│   │   ├── store/appStore.ts    # Zustand store
+│   │   ├── types/               # API-to-UI converters
+│   │   └── config/api.ts        # API base URL and endpoint map
 │   ├── package.json
 │   ├── vite.config.ts
 │   ├── nginx.conf
 │   └── Dockerfile
+├── docs/NOTES.md                # Detailed research notes on the code
 └── docker-compose.yml
 ```
 
 ## Requirements
 
-For local development:
-
-- Python 3.9 or newer
-- Node.js 18 or newer
-- npm
+- Python 3.9+
+- Node.js 18+ and npm
 - A Google Gemini API key
 
-For the container workflow, Docker with Compose is sufficient.
+Or Docker with Compose.
 
 ## Configuration
 
-Create `backend/.env`:
+`backend/.env` (`backend/.env.example` has only the key):
 
 ```dotenv
 GEMINI_API_KEY=your-google-gemini-api-key
-
-# Optional; defaults shown
-API_HOST=0.0.0.0
-API_PORT=8000
+# Optional, default shown
 DATA_DIR=data
 ```
 
-The backend currently reads `GEMINI_API_KEY` and `DATA_DIR`. `run_api.py` starts Uvicorn on port 8000 directly; `API_HOST` and `API_PORT` are passed by Compose but are not consumed by that launcher.
+The backend reads only `GEMINI_API_KEY` and `DATA_DIR`. `run_api.py` always binds `0.0.0.0:8000`; the `API_HOST` and `API_PORT` values in Compose are not read. `api/main.py` mounts the static directories at the hard-coded paths `data/plots` and `data/temp_modifications`, so keep `DATA_DIR` as `data` (or `/app/data` in the container, where the working directory is `/app`).
 
-For local frontend development, optionally create `frontend/.env`:
+`frontend/.env` (optional):
 
 ```dotenv
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-If unset, the frontend uses `http://localhost:8000`.
+Most API calls fall back to `http://localhost:8000` if this is unset, but the CSV download button does not, so set it for local development.
 
 ## Run locally
 
-Start the backend:
+Backend:
 
 ```bash
 cd backend
@@ -146,9 +164,9 @@ pip install -r requirements.txt
 python3 run_api.py
 ```
 
-The API is available at `http://localhost:8000`; Swagger UI is at `http://localhost:8000/api/docs`.
+API at `http://localhost:8000`, Swagger UI at `http://localhost:8000/api/docs`.
 
-In another terminal, start the frontend:
+Frontend, in another terminal:
 
 ```bash
 cd frontend
@@ -156,72 +174,70 @@ npm install
 npm run dev
 ```
 
-Vite serves the app at `http://localhost:8080`, as configured in `frontend/vite.config.ts`.
+Vite serves on `http://localhost:8080` (`frontend/vite.config.ts`).
+
+The older Streamlit UI runs on the same data directory:
+
+```bash
+cd backend
+streamlit run chat_analyst_ui.py
+```
 
 ## Run with Docker Compose
 
-Create `backend/.env` first. The Compose file also interpolates `GEMINI_API_KEY` from the shell, so export the same key before starting the stack:
-
 ```bash
-export GEMINI_API_KEY=your-google-gemini-api-key
+export GEMINI_API_KEY=your-google-gemini-api-key   # Compose interpolates it
 docker compose up --build
 ```
 
-Services:
+`backend/.env` is also mounted read-only into the backend container, so create it first. It does not supply the key: Compose always sets `GEMINI_API_KEY` (empty if you did not export it) and python-dotenv does not override existing variables.
 
-| Service | URL | Persistent data |
+The `VITE_API_BASE_URL` set in Compose is a runtime variable and has no effect on the already-built frontend. The build uses `frontend/.env` if it exists (it is not in `.dockerignore`); without it the CSV download button breaks as described below.
+
+| Service | URL | Data |
 | --- | --- | --- |
-| Frontend | `http://localhost` | image is rebuilt from `frontend/` |
-| Backend | `http://localhost:8000` | named volume mounted at `/app/data` |
-| API docs | `http://localhost:8000/api/docs` | — |
+| Frontend (nginx) | `http://localhost` | static build |
+| Backend | `http://localhost:8000` | named volume at `/app/data` |
+| API docs | `http://localhost:8000/api/docs` | |
 
-Stop the stack with:
+Stop with `docker compose down`. `start-backend.sh`, `start-frontend.sh` and `stop-all.sh` run `docker-compose up -d backend`, `docker-compose up -d frontend` and `docker-compose stop` (the older hyphenated CLI).
 
-```bash
-docker compose down
-```
+Note: the frontend container is served from `http://localhost` (port 80), which is not in the backend's CORS allow list (`api/main.py` allows ports 5173, 3000 and 8080). Add `http://localhost` there if browser requests from the Docker frontend are blocked.
 
-The helper scripts `start-backend.sh`, `start-frontend.sh`, and `stop-all.sh` wrap the same Compose services.
-
-## API overview
+## API
 
 ### Projects
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/projects/` | List projects |
-| `POST` | `/api/projects/upload` | Upload a CSV and create a project |
-| `GET` | `/api/projects/{project_id}` | Read project metadata |
-| `GET` | `/api/projects/{project_id}/context` | Read structured dataset context |
-| `DELETE` | `/api/projects/{project_id}` | Delete a project and its stored data |
-
-The upload is multipart form data with fields `file` and `project_name`. The current implementation accepts files by `.csv` extension and parses them with pandas; it does not enforce an upload-size limit.
+| `POST` | `/api/projects/upload` | Multipart `file` + `project_name`; create a project |
+| `GET` | `/api/projects/{project_id}` | Project metadata |
+| `GET` | `/api/projects/{project_id}/context` | Structured dataset profile |
+| `DELETE` | `/api/projects/{project_id}` | Delete a project and its files |
 
 ### Chats
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` / `POST` | `/api/chats/{project_id}` | List or create chats |
-| `GET` / `PATCH` / `DELETE` | `/api/chats/{project_id}/{chat_id}` | Read, rename, or delete a chat |
+| `GET` / `PATCH` / `DELETE` | `/api/chats/{project_id}/{chat_id}` | Read, rename or delete a chat |
 | `GET` / `DELETE` | `/api/chats/{project_id}/{chat_id}/messages` | Read or clear messages |
 
-### AI analysis
+### AI
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/ai/{project_id}/{chat_id}/query` | Generate and execute an analysis |
-| `DELETE` | `/api/ai/{project_id}/{chat_id}/session` | Clear the in-memory Gemini session |
-| `GET` | `/api/ai/health` | Check Gemini configuration and active sessions |
+| `POST` | `/api/ai/{project_id}/{chat_id}/query` | Body `{"query": "..."}`; generate and run code |
+| `DELETE` | `/api/ai/{project_id}/{chat_id}/session` | Drop the in-memory Gemini session |
+| `GET` | `/api/ai/health` | Gemini key configured, active session count |
 
-Generated assets are served from `/static/plots/` and `/static/downloads/`.
+Generated files are served from `/static/plots/` and `/static/downloads/`. There is also `GET /health` (used by the Docker health check) and `GET /`.
 
 ## Data on disk
 
-With the default `DATA_DIR=data`, the backend creates a structure equivalent to:
-
 ```text
 data/
-├── config.json
 ├── projects/
 │   └── <project-id>/
 │       ├── metadata.json
@@ -231,46 +247,37 @@ data/
 │       │   └── v1_<timestamp>.csv
 │       └── chats/
 │           └── <chat-id>.json
-├── plots/
-└── temp_modifications/
+├── plots/                       # plot_<chat-id>.png
+└── temp_modifications/          # <chat-id>_<hex>.csv
 ```
 
-The Docker named volume preserves this directory across container restarts. Project deletion removes the corresponding project directory. Plot and temporary-download cleanup is not currently automated.
+Deleting a project removes its directory. Plots and downloads are never cleaned up.
 
-## Validation and tests
+## Tests
 
-Backend tests are executable scripts rather than a configured pytest suite:
+Script-style, no pytest config:
 
 ```bash
 cd backend
-
-# Core managers and file persistence; does not require Gemini
-python3 test_phase1.py
-
-# Live Gemini integration; requires GEMINI_API_KEY and makes API calls
-python3 test_phase2.py
+python3 test_phase1.py   # managers and persistence, no Gemini
+python3 test_phase2.py   # live Gemini calls, needs GEMINI_API_KEY exported (it does not read .env)
 ```
 
-Frontend checks:
+Frontend: `npm run lint` and `npm run build`. There is no `npm test`.
 
-```bash
-cd frontend
-npm run lint
-npm run build
-```
+## Known limitations and bugs
 
-There is no `npm test` or `npm run type-check` script in the current `package.json`; `npm run build` performs the configured Vite production build.
-
-## Current limitations
-
-- No authentication or authorization is implemented. CORS is limited to configured local origins, but that is not an access-control boundary.
-- Generated code execution is not safely sandboxed for untrusted users.
-- Gemini conversations are held in process memory while active; restarting the backend recreates sessions from scratch even though serialized history is stored with chats.
-- The configured model name is `gemini-2.0-flash-exp`; availability depends on the Google account and SDK version.
-- The backend still uses the deprecated `google-generativeai` Python package; migration to `google-genai` is pending.
-- Only CSV upload is supported, and there is no enforced file-size limit.
-- Downloadable transformations do not update `current.csv` or create a new active version through the API.
-- Active AI agents are stored in a process-global dictionary, so multi-worker deployment would not share session state.
-- CORS origins are hard-coded for local ports 5173, 3000, and 8080.
-
-Additional operational notes are available in [`START_GUIDE.md`](START_GUIDE.md), [`DOCKER_GUIDE.md`](DOCKER_GUIDE.md), and [`frontend/INTEGRATION_GUIDE.md`](frontend/INTEGRATION_GUIDE.md).
+- No authentication. CORS is not access control.
+- Generated code is not sandboxed.
+- Gemini sessions live in process memory. History is saved to each chat file but never loaded back, so after a backend restart the model has no memory of earlier turns even though the UI shows them.
+- One chart file per chat (`plot_<chat_id>.png`): each new chart in a chat overwrites the previous one, so older chart messages show the latest image.
+- The chart `<img>` in `ChatMessage.tsx` uses the relative `/static/plots/...` URL, which resolves against the frontend's origin rather than the backend's. Charts may not display in the React UI until that URL is prefixed with `API_BASE_URL`.
+- No retry when generated code fails. A failed query still saves the user's message.
+- Generated code gets the agent's live DataFrame as `df`, so code that changes `df` in place changes the data for later questions in that session (not `current.csv`).
+- Clearing a chat's messages, or deleting a chat or project, does not drop its in-memory Gemini session.
+- Route handlers are `async` but call the blocking Gemini SDK and `exec()`, so the server processes one query at a time.
+- The frontend aborts requests after 30 s.
+- Model `gemini-2.0-flash-exp` via the deprecated `google-generativeai` package; the model name may no longer be available.
+- CSV only, read fully into memory, no size limit.
+- Modifications never become a new project version; version history and revert exist only in `VersionManager`.
+- `CLAUDE.md` and the older guides (`START_GUIDE.md`, `DOCKER_GUIDE.md`, `backend/*.md`) predate parts of the code and are not fully accurate. `docs/NOTES.md` is the up-to-date reference.
